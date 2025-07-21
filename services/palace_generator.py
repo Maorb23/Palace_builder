@@ -8,6 +8,7 @@ import io
 import numpy as np
 from PIL import ImageFilter 
 from django.db import models
+import os
 
 def call_nebius_api(prompt, size="512x512"):
     print(f"Making API call with prompt: {prompt[:100]}...")
@@ -85,12 +86,15 @@ def generate_complete_palace_once(main_task):
     print(f"Complete palace prompt: {complete_prompt}")
     
     complete_image_bytes = call_nebius_api(complete_prompt)
+    print(f"complete_image_bytes: {type(complete_image_bytes)}, length: {len(complete_image_bytes) if complete_image_bytes else 0}")
     if complete_image_bytes:
         # Save complete palace to a separate field
-        filename = f'complete_palace_{uuid.uuid4().hex[:8]}.png'
+        filename = f'complete_palace_{uuid.uuid4().hex[:8]}.png' # Name is chosen based on the task id
         main_task.complete_palace_image.save(filename, ContentFile(complete_image_bytes))
         main_task.save()
         print(f"Complete palace saved to: {main_task.complete_palace_image.url}")
+        print(f"Saved complete palace image to: {main_task.complete_palace_image.path}")
+        print(f"File exists: {os.path.exists(main_task.complete_palace_image.path)}")
         return main_task.complete_palace_image
     return None
 
@@ -182,6 +186,8 @@ def generate_palace_image(main_task):
         main_task.palace_image.save(filename, ContentFile(final_image_bytes))
         main_task.save()
         print(f"Layer-specific palace saved to: {main_task.palace_image.url}")
+        print(f"Saved palace image to: {main_task.palace_image.path}")
+        print(f"File exists: {os.path.exists(main_task.palace_image.path)}")
     else:
         print("Failed to create layer-specific palace image")
 

@@ -1,6 +1,7 @@
 import os
 import json
 import re
+
 from openai import OpenAI
 
 api_key = os.environ.get("NEBIUS_API_KEY")

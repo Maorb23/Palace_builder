@@ -18,8 +18,8 @@ class Task(models.Model):
     complexity = models.IntegerField()
     is_completed = models.BooleanField(default=False)
     order = models.IntegerField(null=True, blank=True)  # Order of completion assigned by LLM, only for sub-tasks
-    layer_image = models.ImageField(upload_to='layers/', blank=True, null=True)
-    layer_revealed_image = models.ImageField(upload_to='layer_images/', blank=True, null=True, help_text='Image showing only this layer revealed')
+    layer_image = models.ImageField(upload_to='palaces/layers/', blank=True, null=True)
+    layer_revealed_image = models.ImageField(upload_to='palaces/revealed/', blank=True, null=True, help_text='Image showing only this layer revealed')
     parent = models.ForeignKey('self', null=True, blank=True, on_delete=models.CASCADE, related_name='sub_tasks')
     palace_image = models.ImageField(upload_to='palaces/', blank=True, null=True)
     complete_palace_image = models.ImageField(upload_to='complete_palaces/', blank=True, null=True)
