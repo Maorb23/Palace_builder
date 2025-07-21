@@ -8,3 +8,4 @@ numpy==1.26.4
 gunicorn
 dj-database-url
 whitenoise
+psycopg2-binary
