@@ -3,9 +3,9 @@ import json
 import re
 from openai import OpenAI
 
-api_key_path = "Nebius_api_key.txt"
-with open(api_key_path, "r") as f:
-    api_key = f.read().strip()
+api_key = os.environ.get("NEBIUS_API_KEY")
+if not api_key:
+    raise Exception("NEBIUS_API_KEY environment variable not set")
 
 client = OpenAI(
     base_url="https://api.studio.nebius.ai/v1/",
