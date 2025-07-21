@@ -2,7 +2,7 @@ from django.db import models
 from django.contrib.auth.models import User
 
 class DailySession(models.Model):
-    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True)
     date = models.DateField()
     palace_theme = models.CharField(max_length=100)
     is_completed = models.BooleanField(default=False)

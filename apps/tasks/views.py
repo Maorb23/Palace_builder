@@ -9,7 +9,7 @@ from django.urls import reverse_lazy
 
 class IndexView(View):
     def get(self, request):
-        user = request.user if request.user.is_authenticated else User.objects.first()
+        user = request.user if request.user.is_authenticated else None
         today = timezone.now().date()
         session = DailySession.objects.filter(user=user, date=today).first()
         
@@ -47,7 +47,7 @@ class IndexView(View):
 
 class TasksView(View):
     def get(self, request):
-        user = request.user if request.user.is_authenticated else User.objects.first()
+        user = request.user if request.user.is_authenticated else None
         today = timezone.now().date()
         session = DailySession.objects.filter(user=user, date=today).first()
         tasks = session.tasks.filter(parent__isnull=True) if session else []
@@ -55,8 +55,7 @@ class TasksView(View):
 
 class TaskCreateView(View):
     def post(self, request):
-        # Get or create today's DailySession for the user
-        user = request.user if request.user.is_authenticated else User.objects.first()
+        user = request.user if request.user.is_authenticated else None
         today = timezone.now().date()
         session, _ = DailySession.objects.get_or_create(user=user, date=today, defaults={"palace_theme": "Default"})
         # Get task description from form
