@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pyc
+
+# Django
+*.log
+db.sqlite3
+media/
+staticfiles/
+
+# Virtual environments
+venv/
+venvp/
+ENV/
+.env
+.env.*
+
+# VSCode
+.vscode/
+
+# Mac/Windows
+.DS_Store
+Thumbs.db
+
+# Test/coverage
+htmlcov/
+.coverage
+.tox/
+
+# Node/npm (if any frontend)
+node_modules/
+
+# Misc
+*.bak
+*.swp
+*.swo
+
+# Ignore secret keys
+*key.txt 

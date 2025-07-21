@@ -1,0 +1,137 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard - PalaceBuilder{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2><i class="bi bi-house"></i> Dashboard</h2>
+    <div class="d-flex gap-2">
+        <a href="{% url 'dashboard' %}" class="btn btn-primary">
+            <i class="bi bi-plus-circle"></i> Create New Task
+        </a>
+    </div>
+</div>
+
+<!-- Stats Cards -->
+<div class="row mb-4">
+    <div class="col-md-3 mb-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <i class="bi bi-list-task display-4 text-primary mb-2"></i>
+                <h4 class="card-title">{{ total_tasks|default:0 }}</h4>
+                <p class="card-text text-muted">Total Tasks</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <i class="bi bi-check-circle display-4 text-success mb-2"></i>
+                <h4 class="card-title">{{ completed_tasks|default:0 }}</h4>
+                <p class="card-text text-muted">Completed</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <i class="bi bi-clock display-4 text-warning mb-2"></i>
+                <h4 class="card-title">{{ in_progress_tasks|default:0 }}</h4>
+                <p class="card-text text-muted">In Progress</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <i class="bi bi-building display-4 text-info mb-2"></i>
+                <h4 class="card-title">{{ total_palaces|default:0 }}</h4>
+                <p class="card-text text-muted">Palaces Built</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Tasks -->
+<div class="row">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0">Recent Tasks</h5>
+                <a href="{% url 'dashboard' %}" class="btn btn-sm btn-outline-primary">View All</a>
+            </div>
+            <div class="card-body">
+                {% if recent_tasks %}
+                    <div class="list-group list-group-flush">
+                        {% for task in recent_tasks %}
+                            <div class="list-group-item border-0 px-0">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div class="flex-grow-1">
+                                        <h6 class="mb-1">{{ task.title|truncatechars:60 }}</h6>
+                                        <p class="text-muted small mb-1">{{ task.category }} • Complexity: {{ task.complexity }}/5</p>
+                                        <div class="d-flex align-items-center">
+                                            <div class="progress flex-grow-1 me-2" style="height: 6px;">
+                                                <div class="progress-bar" role="progressbar" style="width: {{ task.progress_percentage|floatformat:0 }}%"></div>
+                                            </div>
+                                            <small class="text-muted">{{ task.completed_subtasks }}/{{ task.total_subtasks }} steps</small>
+                                        </div>
+                                    </div>
+                                    {% if task.palace_image %}
+                                        <img src="{{ task.palace_image.url }}" alt="Palace" class="rounded" style="width: 60px; height: 60px; object-fit: cover;">
+                                    {% endif %}
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <div class="text-center py-4">
+                        <i class="bi bi-list-task display-4 text-muted mb-3"></i>
+                        <h5 class="text-muted">No tasks yet</h5>
+                        <p class="text-muted">Start building your success palace by creating your first task!</p>
+                        <a href="{% url 'dashboard' %}" class="btn btn-primary">
+                            <i class="bi bi-plus-circle"></i> Create Your First Task
+                        </a>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">Quick Actions</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <a href="{% url 'dashboard' %}" class="btn btn-outline-primary">
+                        <i class="bi bi-plus-circle"></i> New Task
+                    </a>
+                    <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary">
+                        <i class="bi bi-list-task"></i> View All Tasks
+                    </a>
+                    <a href="#" class="btn btn-outline-info">
+                        <i class="bi bi-graph-up"></i> View Progress
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card mt-3">
+            <div class="card-header">
+                <h5 class="card-title mb-0">About PalaceBuilder</h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted small">
+                    Transform your tasks into magnificent palaces. Each completed step reveals more of your success palace, 
+                    creating a visual representation of your achievements.
+                </p>
+                <div class="d-flex align-items-center text-muted small">
+                    <i class="bi bi-lightbulb me-2"></i>
+                    <span>Tip: Complete tasks in order to see your palace grow!</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 
