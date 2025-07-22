@@ -66,9 +66,9 @@
                                             <div class="me-2">
                                                 <button class="btn btn-sm btn-outline-secondary" onclick="showEditSubtaskModal({{ sub.id }}, '{{ sub.title|escapejs }}', {{ sub.complexity }}, {{ sub.time_estimate|default:'null' }})">Edit</button>
                                             </div>
-                                            <form method="post" action="{% url 'toggle_task_complete' sub.id %}" style="margin:0;">
+                                            <form method="post" action="{% url 'toggle_task_complete' sub.id %}" style="margin:0;" class="toggle-complete-form" data-subtask-id="{{ sub.id }}" data-parent-id="{{ task.id }}">
                                                 {% csrf_token %}
-                                                <input type="checkbox" class="form-check-input" onchange="this.form.submit()" {% if sub.is_completed %}checked{% endif %}>
+                                                <input type="checkbox" class="form-check-input subtask-complete-checkbox" {% if sub.is_completed %}checked{% endif %}>
                                             </form>
                                         </li>
                                     {% endfor %}
@@ -79,7 +79,7 @@
                         {% if task.palace_image %}
                             <div class="text-center">
                                 <h6 class="text-muted mb-2">Palace Preview</h6>
-                                <img src="{{ task.palace_image.url }}" alt="Palace Preview" class="img-fluid rounded palace-preview-img" />
+                                <img src="{{ task.palace_image.url }}" alt="Palace Preview" class="img-fluid rounded palace-preview-img" id="palace-img-{{ task.id }}" />
                             </div>
                         {% else %}
                             <div class="text-center">
@@ -167,6 +167,81 @@
 </style>
 
 <script>
+// AJAX for subtask completion
+// (AJAX code from previous step)
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.toggle-complete-form').forEach(function(form) {
+        form.addEventListener('change', function(e) {
+            if (e.target.classList.contains('subtask-complete-checkbox')) {
+                e.preventDefault();
+                const subtaskId = form.getAttribute('data-subtask-id');
+                const parentId = form.getAttribute('data-parent-id');
+                const url = form.action;
+                const csrfToken = form.querySelector('[name=csrfmiddlewaretoken]').value;
+                // Show spinner on palace image
+                const palaceImg = document.querySelector(`#palace-img-${parentId}`);
+                const spinnerHtml = `<div class='spinner-border text-primary' role='status'><span class='visually-hidden'>Loading...</span></div>`;
+                if (palaceImg) {
+                    palaceImg.style.display = 'none';
+                    palaceImg.insertAdjacentHTML('afterend', `<div id='palace-spinner-${parentId}'>${spinnerHtml}</div>`);
+                }
+                fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': csrfToken,
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                }).then(response => response.json()).then(data => {
+                    if (data.success) {
+                        // Always poll for palace_image_url after last layer
+                        if (data.all_completed && data.palace_image_url) {
+                            setTimeout(function() {
+                                pollForPalaceImage(data.palace_image_url, data.parent_id, 0, true);
+                            }, 1000); // 1s delay before polling final image
+                        } else if (data.palace_image_url) {
+                            pollForPalaceImage(data.palace_image_url, data.parent_id, 0, false);
+                        }
+                    }
+                });
+            }
+        });
+    });
+});
+
+function pollForPalaceImage(imageUrl, parentId, attempt, isFinal) {
+    const MAX_ATTEMPTS = isFinal ? 30 : 20; // Poll longer for final image
+    const EXTRA_POLLS = isFinal ? 3 : 0; // Poll a few extra times after image loads
+    const img = document.createElement('img');
+    img.onload = function() {
+        let palaceImg = document.querySelector(`#palace-img-${parentId}`);
+        if (palaceImg) {
+            palaceImg.src = imageUrl + '?t=' + new Date().getTime();
+            palaceImg.style.display = '';
+        }
+        let spinner = document.querySelector(`#palace-spinner-${parentId}`);
+        if (spinner) spinner.remove();
+        // If final, poll a few more times to ensure update
+        if (isFinal && attempt < EXTRA_POLLS) {
+            setTimeout(function() {
+                pollForPalaceImage(imageUrl, parentId, attempt + 1, isFinal);
+            }, 1000);
+        }
+    };
+    img.onerror = function() {
+        if (attempt < MAX_ATTEMPTS) {
+            setTimeout(function() {
+                pollForPalaceImage(imageUrl, parentId, attempt + 1, isFinal);
+            }, 1500);
+        } else {
+            let spinner = document.querySelector(`#palace-spinner-${parentId}`);
+            if (spinner) spinner.remove();
+            let palaceImg = document.querySelector(`#palace-img-${parentId}`);
+            if (palaceImg) palaceImg.style.display = '';
+        }
+    };
+    img.src = imageUrl + '?t=' + new Date().getTime();
+}
+// UI functions
 function showTaskForm() {
     document.getElementById('taskForm').style.display = 'block';
     document.getElementById('taskDescription').focus();

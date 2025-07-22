@@ -9,6 +9,8 @@ import numpy as np
 from PIL import ImageFilter 
 from django.db import models
 import os
+import math
+import random
 
 def call_nebius_api(prompt, size="512x512"):
     print(f"Making API call with prompt: {prompt[:100]}...")
@@ -29,7 +31,6 @@ def call_nebius_api(prompt, size="512x512"):
         print(f"API response received: {response}")
         b64_image = response.data[0].b64_json
         decoded_image = base64.b64decode(b64_image)
-        print(f"Image decoded: {len(decoded_image)} bytes")
         return decoded_image
     except Exception as e:
         print(f"Error in API call: {e}")
@@ -86,7 +87,7 @@ def generate_complete_palace_once(main_task):
     print(f"Complete palace prompt: {complete_prompt}")
     
     complete_image_bytes = call_nebius_api(complete_prompt)
-    print(f"complete_image_bytes: {type(complete_image_bytes)}, length: {len(complete_image_bytes) if complete_image_bytes else 0}")
+    
     if complete_image_bytes:
         # Save complete palace to a separate field
         filename = f'complete_palace_{uuid.uuid4().hex[:8]}.png' # Name is chosen based on the task id
@@ -104,83 +105,88 @@ def create_layer_specific_mask(completed_subtasks, total_count, size=(512, 512))
     - Each completed task reveals only its own layer, not previous ones
     - completed_subtasks: queryset of completed sub-tasks
     - total_count: total number of sub-tasks
+    - Mask shape: wavy top/bottom for each layer
     """
     w, h = size
     mask_arr = np.zeros((h, w), dtype=np.uint8)
-    
     if not completed_subtasks.exists():
         return Image.fromarray(mask_arr, mode="L")
-    
-    # Calculate layer height for each sub-task
     layer_height = h // total_count
-    
-    # For each completed sub-task, reveal only its specific layer
     for subtask in completed_subtasks:
         order = subtask.order
         if order > 0 and order <= total_count:
-            # Calculate the layer boundaries for this specific order
             layer_start = h - (order * layer_height)
             layer_end = h - ((order - 1) * layer_height)
-            
-            # Ensure we don't go out of bounds
             layer_start = max(0, layer_start)
             layer_end = min(h, layer_end)
-            
-            # Reveal only this specific layer
-            mask_arr[layer_start:layer_end, :] = 255
-            print(f"Revealing layer {order}: rows {layer_start}-{layer_end}")
-    
-    # Convert to PIL and add slight blur for smooth edges
+            # Wavy mask: create a polygon for the layer with a wavy top
+            amplitude = random.randint(10, 25)
+            frequency = random.uniform(1.5, 2.5)
+            phase = random.uniform(0, 2 * math.pi)
+            top_wave = [
+                (x, layer_start + amplitude * math.sin(frequency * x / w * 2 * math.pi + phase))
+                for x in range(w)
+            ]
+            bottom_wave = [
+                (x, layer_end + amplitude * math.sin(frequency * x / w * 2 * math.pi + phase + math.pi))
+                for x in reversed(range(w))
+            ]
+            polygon = top_wave + bottom_wave
+            img = Image.fromarray(mask_arr, mode="L")
+            draw = ImageDraw.Draw(img)
+            draw.polygon(polygon, fill=255)
+            mask_arr = np.maximum(mask_arr, np.array(img))
+            print(f"Revealing wavy layer {order}: rows {layer_start}-{layer_end}")
     mask_img = Image.fromarray(mask_arr, mode="L")
-    mask_img = mask_img.filter(ImageFilter.GaussianBlur(2))
-    
+    mask_img = mask_img.filter(ImageFilter.GaussianBlur(3))
     return mask_img
 
 def apply_mask_to_image(complete_bytes, mask_img, grey_color=(128, 128, 128)):
-    """Apply mask to reveal palace parts over grey background"""
+    """Apply mask to reveal palace parts over blurred/darkened palace background"""
     try:
         complete = Image.open(io.BytesIO(complete_bytes)).convert("RGB")
-        grey_bg = Image.new("RGB", complete.size, grey_color)
-        
+        # Create blurred and darkened background
+        blurred_bg = complete.filter(ImageFilter.GaussianBlur(16))
+        dark_overlay = Image.new("RGB", complete.size, (30, 30, 30))
+        blurred_bg = Image.blend(blurred_bg, dark_overlay, alpha=0.5)
         # Resize mask to match image size
         mask_img = mask_img.resize(complete.size)
-        
-        # Composite: white in mask = palace, black = grey background
-        final = Image.composite(complete, grey_bg, mask_img)
-        
-        # Save to bytes
+        # Composite: white in mask = palace, black = blurred bg
+        final = Image.composite(complete, blurred_bg, mask_img)
         buf = io.BytesIO()
         final.save(buf, format="PNG")
         return buf.getvalue()
-        
     except Exception as e:
         print(f"Error applying mask: {e}")
         return None
 
 def generate_palace_image(main_task):
     print(f"Generating palace image for task: {main_task.title}")
-    
     # 1. Generate complete palace ONLY ONCE
     complete_palace_image = generate_complete_palace_once(main_task)
     if not complete_palace_image:
         print("Failed to generate complete palace")
         return
-    
     # 2. Calculate completion progress based on order
     completed_subtasks = main_task.sub_tasks.filter(is_completed=True)
     total_count = main_task.sub_tasks.count()
-    
     print(f"Completed sub-tasks: {completed_subtasks.count()}/{total_count}")
-    
+    # If all sub-tasks are complete, just copy the complete palace image
+    if completed_subtasks.count() == total_count and total_count > 0:
+        # Copy the complete palace image to palace_image
+        with open(complete_palace_image.path, 'rb') as f:
+            complete_bytes = f.read()
+        filename = f'palace_{uuid.uuid4().hex[:8]}.png'
+        main_task.palace_image.save(filename, ContentFile(complete_bytes))
+        main_task.save()
+        print(f"Final palace image (unmasked) saved to: {main_task.palace_image.url}")
+        return
     # 3. Create layer-specific mask (each completed task reveals only its layer)
     mask_image = create_layer_specific_mask(completed_subtasks, total_count)
-    
     # 4. Apply mask to reveal specific layers
     with open(complete_palace_image.path, 'rb') as f:
         complete_palace_bytes = f.read()
-    
     final_image_bytes = apply_mask_to_image(complete_palace_bytes, mask_image)
-    
     if final_image_bytes:
         filename = f'palace_{uuid.uuid4().hex[:8]}.png'
         main_task.palace_image.save(filename, ContentFile(final_image_bytes))

@@ -6,6 +6,10 @@ from django.utils import timezone
 from django.contrib.auth.models import User
 from django.views.generic.edit import DeleteView
 from django.urls import reverse_lazy
+from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
+from django.contrib.auth import login as auth_login, authenticate
+from django.http import HttpResponse
+from django.http import JsonResponse
 
 class IndexView(View):
     def get(self, request):
@@ -106,6 +110,30 @@ class TaskToggleCompleteView(View):
         if task.parent and task.is_completed:
             from services.palace_generator import trigger_palace_generation_async
             trigger_palace_generation_async(task.parent)
+        # AJAX support
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            parent = task.parent
+            palace_image_url = parent.palace_image.url if parent and parent.palace_image else None
+            complete_palace_image_url = parent.complete_palace_image.url if parent and parent.complete_palace_image else None
+            # Calculate progress
+            if parent:
+                total = parent.sub_tasks.count()
+                completed = parent.sub_tasks.filter(is_completed=True).count()
+                progress = int((completed / total) * 100) if total > 0 else 0
+                all_completed = (completed == total and total > 0)
+            else:
+                progress = 0
+                all_completed = False
+            return JsonResponse({
+                'success': True,
+                'is_completed': task.is_completed,
+                'palace_image_url': palace_image_url,
+                'complete_palace_image_url': complete_palace_image_url,
+                'progress': progress,
+                'all_completed': all_completed,
+                'subtask_id': task.id,
+                'parent_id': parent.id if parent else None,
+            })
         return redirect('dashboard') 
 
 class TaskDeleteView(View):
@@ -124,3 +152,29 @@ class SubTaskEditView(View):
         subtask.time_estimate = int(time_estimate) if time_estimate else None
         subtask.save()
         return redirect('dashboard') 
+
+class RegistrationView(View):
+    def get(self, request):
+        form = UserCreationForm()
+        return render(request, 'registration/register.html', {'form': form})
+
+    def post(self, request):
+        form = UserCreationForm(request.POST)
+        if form.is_valid():
+            user = form.save()
+            auth_login(request, user)
+            return redirect('index')
+        return render(request, 'registration/register.html', {'form': form})
+
+class LoginView(View):
+    def get(self, request):
+        form = AuthenticationForm()
+        return render(request, 'registration/login.html', {'form': form})
+
+    def post(self, request):
+        form = AuthenticationForm(request, data=request.POST)
+        if form.is_valid():
+            user = form.get_user()
+            auth_login(request, user)
+            return redirect('index')
+        return render(request, 'registration/login.html', {'form': form}) 
