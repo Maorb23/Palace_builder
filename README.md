@@ -100,9 +100,6 @@ Pull requests and issues are welcome! To contribute:
 3. Commit your changes
 4. Open a pull request
 
-## License
-MIT License
-
 ## Acknowledgements
 - [Django](https://www.djangoproject.com/)
 - [OpenAI](https://openai.com/)
